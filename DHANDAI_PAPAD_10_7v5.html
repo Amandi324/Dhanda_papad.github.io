@@ -63,10 +63,15 @@
     <div class="flex flex-col items-center w-full max-w-[850px] gap-4">
 
         <!-- Controls (Download) -->
-        <div class="no-print w-full flex justify-end">
+        <div class="no-print w-full flex justify-end gap-2">
+            <select id="download-format" class="border-[1.5px] border-brandDark text-brandDark rounded px-3 py-2 font-bold focus:outline-none bg-white cursor-pointer shadow-sm">
+                <option value="png">PNG (Highest Quality)</option>
+                <option value="jpeg">JPEG (Standard Print)</option>
+                <option value="webp">WebP (Web Optimized)</option>
+            </select>
             <button onclick="downloadLabel()" id="download-btn" class="bg-brandAccent hover:bg-orange-800 text-white px-5 py-2 rounded shadow-md font-bold flex items-center gap-2 transition-all">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                <span>Download High-Res Label</span>
+                <span>Download High-Res</span>
             </button>
         </div>
 
@@ -155,7 +160,7 @@
 
                 <!-- MIDDLE: Taller Image Placeholder (Papad Process) -->
                 <div class="w-full flex-1 min-h-[70px] border-[1.5px] border-brandDark bg-white/40 flex flex-col items-center justify-center mt-1.5 md:mt-2 relative rounded-sm shadow-sm overflow-hidden">
-                    <img src="image/Gemini_Generated_Image_u72v61u72v61u72v.png" alt="Papad Making Process" class="w-full h-full object-cover">
+                    <img src="image/file_0000000035707208bc782da821674dfc (1).png" alt="Papad Making Process" class="w-full h-full object-cover">
                 </div>
 
                 <!-- LOWER MIDDLE: Stamp Area -->
@@ -220,30 +225,46 @@
     <script>
         async function downloadLabel() {
             const btn = document.getElementById('download-btn');
+            const formatSelect = document.getElementById('download-format');
+            const format = formatSelect.value;
             const originalText = btn.innerHTML;
             
             try {
                 // Show loading state
-                btn.innerHTML = '<svg class="animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Generating Image...</span>';
+                btn.innerHTML = '<svg class="animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Generating...</span>';
                 btn.disabled = true;
                 btn.classList.add('opacity-75', 'cursor-not-allowed');
 
                 const labelElement = document.getElementById('label-design');
+                
+                // FIX FOR OVERLAPPING: Force strict pixel dimensions before capturing
+                const rect = labelElement.getBoundingClientRect();
                 
                 // Capture the element using html2canvas
                 const canvas = await html2canvas(labelElement, {
                     scale: 4, // 4x scale for high resolution printing
                     useCORS: true, 
                     allowTaint: true,
-                    backgroundColor: '#FFF3C4' // Match the background color
+                    backgroundColor: '#FFF3C4',
+                    width: rect.width,
+                    height: rect.height,
+                    onclone: function (clonedDoc) {
+                        // Apply fixed dimensions to the cloned element to prevent flexbox collapse/overlap
+                        const clonedLabel = clonedDoc.getElementById('label-design');
+                        clonedLabel.style.width = rect.width + 'px';
+                        clonedLabel.style.height = rect.height + 'px';
+                    }
                 });
 
-                // Convert canvas to a high-quality PNG data URL
-                const image = canvas.toDataURL("image/png", 1.0);
+                // Convert canvas to requested format
+                const mimeType = 'image/' + format;
+                const extension = format === 'jpeg' ? 'jpg' : format;
+                // Use quality 1.0 for highest resolution
+                const image = canvas.toDataURL(mimeType, 1.0);
                 
                 // Create a temporary link to trigger the download
                 const link = document.createElement('a');
-                link.download = 'Dhandai_Papad_Label_HighRes.png';
+                link.download = `Dhandai_Papad_Label_HighRes.${extension}`;
                 link.href = image;
                 document.body.appendChild(link);
                 link.click();
@@ -251,7 +272,7 @@
                 
             } catch (error) {
                 console.error("Error generating image:", error);
-                alert("An error occurred while generating the image. Note: Local 'C:\\' drive images might be blocked by browser security during capture.");
+                alert("An error occurred while generating the image. Ensure your images are loaded properly.");
             } finally {
                 // Restore button state
                 btn.innerHTML = originalText;
@@ -261,8 +282,4 @@
         }
     </script>
 </body>
-
 </html>
-
-
-
