@@ -132,7 +132,7 @@
             </div>
 
             <!-- ================= RIGHT COLUMN (Regulatory & Info) ================= -->
-            <div class="flex-1 flex flex-col justify-between pl-1 h-full pb-1">
+            <div id="right-column" class="flex-1 flex flex-col justify-between pl-1 h-full pb-1">
                 
                 <!-- TOP: Ingredients & Nutrition -->
                 <div class="grid grid-cols-2 gap-2 md:gap-3 flex-shrink-0">
@@ -159,7 +159,7 @@
                 </div>
 
                 <!-- MIDDLE: Taller Image Placeholder (Papad Process) -->
-                <div class="w-full flex-1 min-h-[70px] border-[1.5px] border-brandDark bg-white/40 flex flex-col items-center justify-center mt-1.5 md:mt-2 relative rounded-sm shadow-sm overflow-hidden">
+                <div id="process-image" class="w-full flex-1 min-h-[70px] border-[1.5px] border-brandDark bg-white/40 flex flex-col items-center justify-center mt-1.5 md:mt-2 relative rounded-sm shadow-sm overflow-hidden">
                     <img src="image/file_0000000035707208bc782da821674dfc (1).png" alt="Papad Making Process" class="w-full h-full object-cover">
                 </div>
 
@@ -229,31 +229,42 @@
             const format = formatSelect.value;
             const originalText = btn.innerHTML;
             
+            // Elements to freeze
+            const labelElement = document.getElementById('label-design');
+            const rightColumn = document.getElementById('right-column');
+            const processImage = document.getElementById('process-image');
+
             try {
                 // Show loading state
                 btn.innerHTML = '<svg class="animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <span>Generating...</span>';
                 btn.disabled = true;
                 btn.classList.add('opacity-75', 'cursor-not-allowed');
 
-                const labelElement = document.getElementById('label-design');
+                // FIX FOR OVERLAPPING: Force strict pixel dimensions on the LIVE DOM right before capture
+                // This stops html2canvas from incorrectly shrinking elements when calculating flex boundaries
+                const labelRect = labelElement.getBoundingClientRect();
+                const rightColRect = rightColumn.getBoundingClientRect();
+                const processImgRect = processImage.getBoundingClientRect();
+
+                // Apply frozen inline styles
+                labelElement.style.width = labelRect.width + 'px';
+                labelElement.style.height = labelRect.height + 'px';
                 
-                // FIX FOR OVERLAPPING: Force strict pixel dimensions before capturing
-                const rect = labelElement.getBoundingClientRect();
+                rightColumn.style.height = rightColRect.height + 'px';
                 
+                processImage.style.flex = 'none'; // Disable flex-1 during capture
+                processImage.style.height = processImgRect.height + 'px';
+
                 // Capture the element using html2canvas
                 const canvas = await html2canvas(labelElement, {
                     scale: 4, // 4x scale for high resolution printing
                     useCORS: true, 
                     allowTaint: true,
                     backgroundColor: '#FFF3C4',
-                    width: rect.width,
-                    height: rect.height,
-                    onclone: function (clonedDoc) {
-                        // Apply fixed dimensions to the cloned element to prevent flexbox collapse/overlap
-                        const clonedLabel = clonedDoc.getElementById('label-design');
-                        clonedLabel.style.width = rect.width + 'px';
-                        clonedLabel.style.height = rect.height + 'px';
-                    }
+                    width: labelRect.width,
+                    height: labelRect.height,
+                    windowWidth: document.documentElement.offsetWidth,
+                    windowHeight: document.documentElement.offsetHeight
                 });
 
                 // Convert canvas to requested format
@@ -274,6 +285,13 @@
                 console.error("Error generating image:", error);
                 alert("An error occurred while generating the image. Ensure your images are loaded properly.");
             } finally {
+                // UNFREEZE STYLES: Revert everything back to responsive tailwind classes
+                labelElement.style.width = '';
+                labelElement.style.height = '';
+                rightColumn.style.height = '';
+                processImage.style.flex = '';
+                processImage.style.height = '';
+
                 // Restore button state
                 btn.innerHTML = originalText;
                 btn.disabled = false;
