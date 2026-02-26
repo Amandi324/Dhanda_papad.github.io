@@ -229,10 +229,8 @@
             const format = formatSelect.value;
             const originalText = btn.innerHTML;
             
-            // Elements to freeze
             const labelElement = document.getElementById('label-design');
             const rightColumn = document.getElementById('right-column');
-            const processImage = document.getElementById('process-image');
 
             try {
                 // Show loading state
@@ -240,20 +238,13 @@
                 btn.disabled = true;
                 btn.classList.add('opacity-75', 'cursor-not-allowed');
 
-                // FIX FOR OVERLAPPING: Force strict pixel dimensions on the LIVE DOM right before capture
-                // This stops html2canvas from incorrectly shrinking elements when calculating flex boundaries
+                // FIX FOR OVERLAPPING: Measure exact dimensions BEFORE capture
                 const labelRect = labelElement.getBoundingClientRect();
                 const rightColRect = rightColumn.getBoundingClientRect();
-                const processImgRect = processImage.getBoundingClientRect();
-
-                // Apply frozen inline styles
-                labelElement.style.width = labelRect.width + 'px';
-                labelElement.style.height = labelRect.height + 'px';
                 
-                rightColumn.style.height = rightColRect.height + 'px';
-                
-                processImage.style.flex = 'none'; // Disable flex-1 during capture
-                processImage.style.height = processImgRect.height + 'px';
+                // Get exact heights of all children in the right column
+                const liveChildren = Array.from(rightColumn.children);
+                const childHeights = liveChildren.map(c => c.getBoundingClientRect().height);
 
                 // Capture the element using html2canvas
                 const canvas = await html2canvas(labelElement, {
@@ -263,8 +254,28 @@
                     backgroundColor: '#FFF3C4',
                     width: labelRect.width,
                     height: labelRect.height,
-                    windowWidth: document.documentElement.offsetWidth,
-                    windowHeight: document.documentElement.offsetHeight
+                    onclone: function (clonedDoc) {
+                        const clonedLabel = clonedDoc.getElementById('label-design');
+                        const clonedRightCol = clonedDoc.getElementById('right-column');
+
+                        // 1. Force exact label dimensions & disable problematic aspect-ratio
+                        clonedLabel.style.width = labelRect.width + 'px';
+                        clonedLabel.style.height = labelRect.height + 'px';
+                        clonedLabel.style.aspectRatio = 'auto'; // Disable aspect ratio in clone to prevent distortions
+
+                        // 2. Lock the right column's height
+                        clonedRightCol.style.height = rightColRect.height + 'px';
+                        clonedRightCol.style.maxHeight = rightColRect.height + 'px';
+
+                        // 3. Force exact dimensions on each block inside the right column
+                        const clonedChildren = Array.from(clonedRightCol.children);
+                        clonedChildren.forEach((child, index) => {
+                            child.style.flex = 'none'; // Prevent flexbox collapse overlapping
+                            child.style.height = childHeights[index] + 'px';
+                            child.style.minHeight = childHeights[index] + 'px';
+                            child.style.maxHeight = childHeights[index] + 'px';
+                        });
+                    }
                 });
 
                 // Convert canvas to requested format
@@ -285,13 +296,6 @@
                 console.error("Error generating image:", error);
                 alert("An error occurred while generating the image. Ensure your images are loaded properly.");
             } finally {
-                // UNFREEZE STYLES: Revert everything back to responsive tailwind classes
-                labelElement.style.width = '';
-                labelElement.style.height = '';
-                rightColumn.style.height = '';
-                processImage.style.flex = '';
-                processImage.style.height = '';
-
                 // Restore button state
                 btn.innerHTML = originalText;
                 btn.disabled = false;
